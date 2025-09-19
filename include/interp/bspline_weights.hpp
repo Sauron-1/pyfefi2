@@ -6,7 +6,6 @@
 namespace bspline_interp {
 
 using namespace rational;
-using std::size_t;
 
 template<size_t order, size_t offset=0>
 consteval auto bspline_weight_core() {

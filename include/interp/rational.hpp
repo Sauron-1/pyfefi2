@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <cstddef>
 
 #pragma once
 
@@ -89,7 +90,7 @@ constexpr Rational operator/(const Rational& r1, const Rational& r2) {
 }
 
 template<typename T>
-inline auto constexpr powi(T val, std::size_t N) {
+inline auto constexpr powi(T val, size_t N) {
     if (N == 0)
         return T{1};
     else if (N == 1)
@@ -103,7 +104,7 @@ inline auto constexpr powi(T val, std::size_t N) {
     }
 }
 
-constexpr Rational pow(const Rational& r, std::size_t N) {
+constexpr Rational pow(const Rational& r, size_t N) {
     auto new_sign = N % 2 == 0 ? r.sign xor r.sign : r.sign;
     return Rational(
             new_sign,
