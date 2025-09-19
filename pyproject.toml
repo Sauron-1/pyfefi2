@@ -1,0 +1,27 @@
+[build-system]
+requires = [ 
+    "setuptools>=42",
+    "wheel",
+    "pybind11~=2.10.4",
+    "cmake>=3.12"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyfefi2"
+version = "0.1"
+authors = [ 
+    { name = "Junyi Ren", email = "jyren9871@gmail.com" },
+]
+description = "Pyfefi version 2"
+classifiers = [ 
+    "Programming Language :: C++",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "f90nml",
+    "psutil",
+    "netCDF4"
+]

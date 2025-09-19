@@ -1,0 +1,9 @@
+__pycache__/
+build/
+dist/
+tests/
+*.egg-info/
+
+build*/
+old/
+.ycm_extra_conf.py
