@@ -113,7 +113,7 @@ ext_modules = [
 
 setup(
     name = 'pyfefi2',
-    version = '0.1',
+    version = '0.1.0',
     description = 'Pyfefi version 2',
     author = 'Junyi Ren',
     packages = find_packages(),
