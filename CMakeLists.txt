@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.11)
+cmake_minimum_required(VERSION 3.12)
 project(pyfefi)
 
 if (NOT EXISTS ${CMAKE_BINARY_DIR}/CMakeCache.txt)
@@ -18,12 +18,12 @@ include(FetchContent)
 
 find_package(OpenMP REQUIRED)
 
-find_package(pybind11 QUIET)
-if (NOT pybind11_FOUND)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11/CMakeLists.txt")
-        message(STATUS "pybind11 not found. Using local copy from thirdparty/pybind11.")
-        add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11")
-    else()
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11")
+else()
+    message(STATUS "Trying to use system pybind11.")
+    find_package(pybind11 QUIET)
+    if (NOT pybind11_FOUND)
         message(STATUS "pybind11 not found. Trying to download from GitHub.")
         FetchContent_Declare(
             pybind11
@@ -34,12 +34,12 @@ if (NOT pybind11_FOUND)
     endif()
 endif()
 
-find_package(xsimd QUIET)
-if (NOT xsimd_FOUND)
-    if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd/CMakeLists.txt")
-        message(STATUS "xsimd not found. Using local copy from thirdparty/xsimd.")
-        add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd")
-    else()
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd/CMakeLists.txt")
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd")
+else()
+    message(STATUS "Trying to use system xsimd.")
+    find_package(xsimd QUIET)
+    if (NOT xsimd_FOUND)
         message(STATUS "xsimd not found. Trying to download from GitHub.")
         FetchContent_Declare(
             xsimd
