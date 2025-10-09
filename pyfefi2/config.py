@@ -37,13 +37,8 @@ class Config:
             raise RuntimeError(f'{path} does not contain file `fefi.input`.')
         self._conf = f90nml.read(conf_file)
 
-        self.run_id = self.get_run_id(path)
-        self.cache_folder: Optional[str] = None
-        if cache_folder is None:
-            cache_folder = os.environ.get('PYFEFI_CACHE_FOLDER', None)
-        if cache_folder is not None:
-            self.cache_folder = os.path.join(cache_folder, self.run_id)
-            os.makedirs(self.cache_folder, exist_ok=True)
+        self.__cache_folder_set = False
+        self._cache_folder = cache_folder
 
         self.diag_idx = diag_idx
         self.dtype = np.dtype(data_type)
@@ -101,12 +96,27 @@ class Config:
                 return f.read()
         else:
             run_id = self._calc_run_id(path)
-            if os.access(path, os.W_OK):
+            try:
                 with open(id_file, 'w') as f:
                     f.write(run_id)
-            else:
-                warnings.warn(f'Path {path} is not writable. RunID file not written.')
+            except (IOError, OSError) as e:
+                warnings.warn(f'RunID file not written. Failed to write {id_file}: {e}')
             return run_id
+
+    @property
+    def cache_folder(self) -> Optional[str]:
+        if not self.__cache_folder_set:
+            cache_folder = self._cache_folder
+            if cache_folder is None:
+                cache_folder = os.environ.get('PYFEFI_CACHE_FOLDER', None)
+            if cache_folder is not None:
+                run_id = self.get_run_id(os.path.abspath(self.path))
+                real_cache_folder = os.path.join(cache_folder, run_id)
+                os.makedirs(real_cache_folder, exist_ok=True)
+            self._cache_folder = real_cache_folder
+            self.__cache_folder_set = True
+
+        return self._cache_folder
 
     def cache_file(self, name: str) -> Optional[str]:
         """
@@ -118,9 +128,9 @@ class Config:
         Returns:
             Optional[str]: The path to the cache file, or None if no cache folder is specified.
         """
+
         if self.cache_folder is None:
-            warnings.warn('No cache folder specified. Please pass the path to the constructor, or set "PYFEFI_CACHE_FOLDER" environment variable.')
-            return None
+            raise RuntimeError('No cache folder specified. Please pass the path to the constructor, or set "PYFEFI_CACHE_FOLDER" environment variable.')
         return os.path.join(self.cache_folder, name)
 
     def __getitem__(self, key: str) -> Any:

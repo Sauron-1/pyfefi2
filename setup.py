@@ -34,8 +34,7 @@ class CMakeBuild(build_ext):
         build_directory = os.path.abspath(self.build_temp)
 
         cmake_args = [
-            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + build_directory,
-            '-DPYTHON_EXECUTABLE=' + sys.executable
+            '-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + build_directory
         ]
 
         cfg = 'Debug' if self.debug else 'Release'
@@ -69,6 +68,9 @@ class CMakeBuild(build_ext):
         build_system = env.pop('BUILD_SYS', None)
         if build_system:
             cmake_args += [f'-G{build_system}']
+
+        py_exec = env.pop('PYTHON_EXEC', sys.executable)
+        cmake_args += [f'-DPython_EXECUTABLE={py_exec}']
 
         # CMakeLists.txt is in the same directory as this setup.py file
         cmake_list_dir = os.path.abspath(os.path.dirname(__file__))
@@ -112,10 +114,6 @@ ext_modules = [
 ]
 
 setup(
-    name = 'pyfefi2',
-    version = '0.1.0',
-    description = 'Pyfefi version 2',
-    author = 'Junyi Ren',
     packages = find_packages(),
     ext_modules = ext_modules,
     cmdclass = dict(build_ext=CMakeBuild),
