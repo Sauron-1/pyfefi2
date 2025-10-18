@@ -56,7 +56,7 @@ class InterpWeights {
         FORCE_INLINE void init(const std::array<fvec, D>& pos, const std::array<int_t, D>& strides) {
             std::array<std::array<fvec, O+1>, D> dim_weights;
             ivec idx_center = 0;
-            simd::constexpr_for<0, D, 1>([=, &dim_weights, &idx_center](auto I) {
+            simd::constexpr_for<0, D, 1>([&](auto I) {
                 constexpr int i = decltype(I)::value;
                 fvec fidx;
                 if constexpr (O % 2 == 0)
@@ -70,10 +70,10 @@ class InterpWeights {
             for (auto& w : m_weights) w = 1;
 
             constexpr auto cart_prod = cartesian_prod<D, O+1>;
-            simd::constexpr_for<0, num_points, 1>([=, this](auto I) {
+            simd::constexpr_for<0, num_points, 1>([&, this](auto I) {
                 constexpr int i = decltype(I)::value;
                 ivec idx = idx_center;
-                simd::constexpr_for<0, D, 1>([=, &idx, this] (auto J) {
+                simd::constexpr_for<0, D, 1>([&, this] (auto J) {
                     constexpr int j = decltype(J)::value;
                     m_weights[i] *= dim_weights[j][cart_prod[i][j]];
                     idx += strides[j] * cart_prod[i][j];
@@ -87,7 +87,7 @@ class InterpWeights {
                 const std::array<int_t, D>& shape) {
             typename ivec::vec_bool_t result = true;
             constexpr size_t mhi = O - O/2;
-            simd::constexpr_for<0, D, 1>([=, &result](auto I) {
+            simd::constexpr_for<0, D, 1>([&](auto I) {
                 constexpr int i = decltype(I)::value;
                 fvec fidx;
                 if constexpr (O%2 == 0)
@@ -110,7 +110,7 @@ class InterpWeights {
 };
 
 template<size_t D, size_t O, typename Float, size_t W>
-class Interpolator : InterpWeights<D, O, Float, W> {
+class Interpolator : public InterpWeights<D, O, Float, W> {
     public:
         static constexpr size_t simd_width = W;
         using Super = InterpWeights<D, O, Float, W>;
@@ -128,7 +128,7 @@ class Interpolator : InterpWeights<D, O, Float, W> {
 
         FORCE_INLINE fvec gather(const Float* __restrict src) const {
             fvec result = 0;
-            simd::constexpr_for<0, num_points, 1>([=, &result, this](auto I) {
+            simd::constexpr_for<0, num_points, 1>([&, this](auto I) {
                 constexpr int i = decltype(I)::value;
                 result += fvec::gather(src, index(i)) * weight(i);
             });
@@ -136,7 +136,7 @@ class Interpolator : InterpWeights<D, O, Float, W> {
         }
 
         FORCE_INLINE fvec scatter(Float* __restrict dst, const fvec& val) const {
-            simd::constexpr_for<0, num_points, 1>([=, this](auto I) {
+            simd::constexpr_for<0, num_points, 1>([&, this](auto I) {
                 constexpr int i = decltype(I)::value;
                 (fvec::gather(dst, index(i)) + val*weight(i)).scatter(dst, index(i));
             });

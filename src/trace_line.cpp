@@ -3,6 +3,7 @@
 
 #include <simd.hpp>
 #include <rk.hpp>
+#include <stdexcept>
 #include <trace_grid.hpp>
 #include <trace_line.hpp>
 #include <numpy_util.hpp>
@@ -66,11 +67,23 @@ class LineTracer {
             start = 0;
             scale = std::sqrt(simd::reduce_add(delta*delta)) / Float(N);
 
-            const auto& arr0 = std::get<0>(std::tie(arrs...));
+            const auto arr_tp = std::tie(arrs...);
+            const auto& arr0 = std::get<0>(arr_tp);
+            simd::constexpr_for<0, N, 1>([=, this](auto I) {
+                constexpr int i = decltype(I)::value;
+                if (std::get<i>(arr_tp).ndim() != N)
+                    throw std::runtime_error("Dimension mismatch");
+            });
             for (auto i = 0; i < N; ++i) {
                 m_shape[i] = arr0.shape(i);
                 m_strides[i] = arr0.strides(i) / sizeof(Float);
             }
+            simd::constexpr_for<1, N, 1>([=, this](auto I) {
+                constexpr int i = decltype(I)::value;
+                for (int d = 0; d < N; ++d)
+                    if (std::get<i>(arr_tp).strides(d) != m_strides[d]*sizeof(Float))
+                        throw std::runtime_error("Stride mismatch");
+            });
             m_size = simd::reduce_prod(m_shape);
         }
 
@@ -80,7 +93,13 @@ class LineTracer {
             auto args = std::tie(arrs...);
             simd::constexpr_for<0, N, 1>([this, &args](auto I) {
                 constexpr size_t i = decltype(I)::value;
-                m_data[i] = std::get<I>(args).data();
+                m_data[i] = std::get<i>(args).data();
+            });
+
+            simd::constexpr_for<0, N, 1>([=, this](auto I) {
+                constexpr int i = decltype(I)::value;
+                if (std::get<i>(args).ndim() != N)
+                    throw std::runtime_error("Dimension mismatch");
             });
 
             for (auto i = 0; i < N; ++i) {
@@ -94,6 +113,12 @@ class LineTracer {
                 m_shape[i] = arr0.shape(i);
                 m_strides[i] = arr0.strides(i) / sizeof(Float);
             }
+            simd::constexpr_for<1, N, 1>([=, this](auto I) {
+                constexpr int i = decltype(I)::value;
+                for (int d = 0; d < N; ++d)
+                    if (std::get<i>(args).strides(d) != m_strides[d]*sizeof(Float))
+                        throw std::runtime_error("Stride mismatch");
+            });
             m_size = simd::reduce_prod(m_shape);
         }
 
