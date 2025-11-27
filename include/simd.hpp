@@ -47,7 +47,7 @@ FORCE_INLINE constexpr T sign(const T& val) {
 template<typename T, typename T1, typename T2>
 requires(std::is_arithmetic_v<T> and std::is_convertible_v<T1, T> and std::is_convertible_v<T2, T>)
 FORCE_INLINE constexpr T clip(const T& val, T1 lo, T2 hi) {
-    return val < lo ? lo : val > hi ? hi : val;
+    return val >= lo ? (val < hi ? val : hi) : lo;
 }
 
 /*
