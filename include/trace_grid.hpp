@@ -57,35 +57,50 @@ class TraceGrid {
         }
 
         void set_line(T val, fvec s, fvec e) {
-            s = (s - start) / scale;
-            e = (e - start) / scale;
-            Float zero = 1e-10;
+            s = (s - start) / scale + Float(0.5);
+            e = (e - start) / scale + Float(0.5);
+            Float zero = 1e-7;
+
+            auto idx = to_idxi(simd::to_int(simd::floor(e)));
+            ptr[idx] = val;
 
             fvec dir = e - s;
-            auto len = std::sqrt(simd::reduce_add(dir*dir));
+            auto len = std::sqrt(simd::reduce_add(dir * dir));
             if (len <= zero) return;
-            dir = dir / len;
-            fvec cur = s;
-            fvec dir_sign = simd::select(
-                    dir < -zero, -1,
-                    simd::select(dir > zero, 1, 0));
-            auto dir_is_zero = (dir_sign == 0);
-            while (simd::reduce_add((e-cur)*dir) > -zero) {
-                auto idx = to_idx1(cur);
-                if (idx >= 0 || idx < m_size)
-                    ptr[idx] = val;
 
-                auto next_i = simd::floor(cur + dir_sign);
-                auto t = simd::select(dir_is_zero, 1e20, (next_i - cur) / dir);
-                Float min_t = simd::reduce_min(t) + Float(1e-6);
-                cur += dir * min_t;
-            }
+            dir = dir / len;
+
+            auto dir_is_zero = simd::abs(dir) <= zero;
+
+            fvec delta = s - simd::floor(s);
+            ivec grid = simd::to_int(s - delta);
+
+            fvec base = simd::select(dir >= 0, Float(1), Float(0));
+
+            do {
+                auto idx = to_idxi(grid);
+                ptr[idx] = val;
+
+                auto t = simd::select(dir_is_zero, Float(1e10), (base - delta) / dir);
+                t = simd::select(t == 0, Float(0.9), t);
+
+                Float min_t = simd::reduce_min(t);
+                len -= min_t;
+
+                delta += dir * min_t;
+                fvec offset = simd::select(
+                        delta >= 0,
+                        simd::select(
+                            delta >= 1,
+                            -1, 0), 1);
+                grid -= simd::to_int(offset);
+                delta += offset;
+            } while (len > zero);
         }
 
-        void set_lines(T val, std::vector<fvec> line, std::array<Int, 2> skips=std::array<Int, 2>{0, 0}) {
-            for (auto i = skips[0]; i < line.size()-skips[1]-1; ++i) {
+        void set_lines(T val, const std::vector<fvec>& line, std::array<Int, 2> skips=std::array<Int, 2>{0, 0}) {
+            for (auto i = skips[0]; i+1 < line.size()-skips[1]; ++i)
                 set_line(val, line[i], line[i+1]);
-            }
         }
 
         size_t get_total(T init_val) const {
@@ -102,8 +117,11 @@ class TraceGrid {
         size_t m_size;
 
         auto to_idx1(const fvec& pos) const {
-            auto idx = simd::to_int(simd::floor(pos));
+            auto idx = simd::to_int(simd::round(pos));
             return simd::reduce_add(idx*strides);
+        }
+        auto to_idxi(const ivec& pos) const {
+            return simd::reduce_add(pos*strides);
         }
 
 };

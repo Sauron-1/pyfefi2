@@ -184,7 +184,7 @@ class LineTracer {
             // move the positive part to the end of the vector
             if (len_neg == 1)
                 return res_pos;
-            std::move_backward(res_pos.begin(), res_pos.begin() + len_pos, res_pos.end());
+            std::move_backward(res_pos.begin(), res_pos.begin()+len_pos, res_pos.end());
             // reverse the negative part and copy them to the beginning of the vector
             std::reverse(res_neg.begin(), res_neg.end());
             std::copy(res_neg.begin(), res_neg.end(), res_pos.begin());
@@ -325,15 +325,15 @@ class LineTracer {
             };
 
             py::array_t<uint16_t> result(shape);
-            auto result_ptr = result.mutable_data();
+            uint16_t* __restrict result_ptr = result.mutable_data();
             TraceGrid<uint16_t, Float, N> trace_grid(
                     result_ptr,
                     start, delta, shape, m_strides);
 
             for (auto i = 0; i < result.size(); ++i)
                 result_ptr[i] = initial_flag;
-            auto flags_ptr = ends_flags.data();
-            auto trace_flags_ptr = trace_flags.data();
+            const uint8_t* __restrict flags_ptr = ends_flags.data();
+            const uint8_t* __restrict trace_flags_ptr = trace_flags.data();
 
             auto term_fn = [=, this](auto& pos) -> bool {
                 bool term_zero = terminate(pos, term_val);
@@ -341,7 +341,7 @@ class LineTracer {
                     return true;
                 auto ipos = simd::to_int(convert(pos));
                 auto i = simd::reduce_add(ipos * m_strides);
-                return flags_ptr[i] > 0 || trace_flags_ptr[i] == 0;
+                return flags_ptr[i] > 0;
             };
 
             auto get_flag = [this, flags_ptr](auto& pos) -> uint16_t {
@@ -350,8 +350,8 @@ class LineTracer {
                 return flags_ptr[i];
             };
 
-            size_t total_points = simd::reduce_prod(m_shape-4);
             ivec inner_shape = m_shape - 4;
+            size_t total_points = simd::reduce_prod(inner_shape);
             size_t base_offset = simd::reduce_add(2 * m_strides);
 
             std::vector<size_t> indices_sf(total_points);
@@ -363,27 +363,27 @@ class LineTracer {
             std::vector<size_t> traced_num_thread(omp_get_max_threads());
             for (auto& tn : traced_num_thread) tn = 0;
 
-            for (auto seg = 0u; seg < total_points; seg += report_num) {
+            for (size_t seg = 0u; seg < total_points; seg += report_num) {
 #pragma omp parallel for schedule(dynamic) default(shared)
                 for (int64_t i = seg; i < seg+report_num; ++i) {
                     if (i >= total_points) continue;
                     auto i_idx = indices_sf[i] + base_offset;
-                    auto idx = i2idx(indices_sf[i], inner_shape)+2;
+                    auto idx = i2idx(i_idx, m_shape);
                     if (
-                            result_ptr[i_idx] != initial_flag or
-                            trace_flags_ptr[i_idx] == 0 or
-                            flags_ptr[i_idx] != 0 )
+                            result_ptr[i_idx] != initial_flag or // Already processed
+                            trace_flags_ptr[i_idx] == 0 or  // User masked out
+                            flags_ptr[i_idx] != 0 )  // Root region
                         continue;
 
                     int tid = omp_get_thread_num();
                     traced_num_thread[tid] += 1;
 
-                    auto seed = (simd::to_float(idx) + T(0.5)) * delta + start;
+                    auto seed = simd::to_float(idx) * delta + start;
                     auto line = bidir_trace(seed, cfg, term_fn);
                     std::array<Int, 2> skips{0, 0};
                     size_t line_len = line.size();
 
-                    if (line_len < 4)
+                    if (line_len < 2)
                         continue;
 
                     while (not in_bound(convert(line[skips[0]])) and skips[0] < line_len)
@@ -391,9 +391,20 @@ class LineTracer {
                     while (not in_bound(convert(line[line_len-skips[1]-1])) and skips[1] < line_len)
                         skips[1] += 1;
 
-                    if (skips[0] >= line_len or skips[1] >= line_len or skips[0]+skips[1] >= line_len-1)
+                    if (skips[0] >= line_len or skips[1] >= line_len or skips[0]+skips[1] >= line_len)
                         continue;
                     uint16_t result_flag = (get_flag(line[skips[0]]) << 8) | get_flag(line[line_len-skips[1]-1]);
+
+                    bool seed_in = false;
+                    for (int i = skips[0]; i < line_len-skips[1]; ++i) {
+                        if (simd::all(line[i] == seed))
+                            seed_in = true;
+                    }
+                    if (not seed_in) {
+                        printf("Seed not in line\n");
+                    }
+
+                    result_ptr[i_idx] = result_flag;
                     trace_grid.set_lines(
                             result_flag,
                             line, skips);
