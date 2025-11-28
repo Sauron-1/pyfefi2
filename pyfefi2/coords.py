@@ -20,7 +20,8 @@ class Coordinates:
             dtype (Any, optional): The data type. Defaults to np.float32.
         """
         cid = config['input_parameters']['coordinate']
-        grid_type = config['changeparameters'][self._key_name(idx, 'idiagbox')] % 10
+        grid_idx = 0 if idx == 0 else idx - 1
+        grid_type = config['changeparameters'][self._key_name(grid_idx, 'idiagbox')] % 10
 
         dtype = np.dtype(dtype)
         if dtype.kind != 'f':
@@ -29,11 +30,11 @@ class Coordinates:
 
         if version <= 1 or grid_type != 0:
             self.grid_size = np.array([
-                config['changeparameters'][self._key_name(idx, 'nxd')],
-                config['changeparameters'][self._key_name(idx, 'nyd')],
-                config['changeparameters'][self._key_name(idx, 'nzd')]
+                config['changeparameters'][self._key_name(grid_idx, 'nxd')],
+                config['changeparameters'][self._key_name(grid_idx, 'nyd')],
+                config['changeparameters'][self._key_name(grid_idx, 'nzd')]
             ])
-            self.limits = np.array(config['changeparameters'][self._key_name(idx, 'ddomain')], dtype=self.dtype).reshape(3, 2)
+            self.limits = np.array(config['changeparameters'][self._key_name(grid_idx, 'ddomain')], dtype=self.dtype).reshape(3, 2)
         else:
             self.grid_size = np.array([
                 config['input_parameters']['nx'] + 1,

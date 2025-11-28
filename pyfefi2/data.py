@@ -256,7 +256,7 @@ class InterpData:
         cache_key = f'{name}_{frame:05d}'
         if cache_key in self.array_caches:
             self.array_caches.move_to_end(cache_key, last=True)
-            return self.array_caches(cache_key)
+            return self.array_caches[cache_key]
         return None
 
     def _set_cache(self, frame, name, data):
@@ -275,7 +275,7 @@ class InterpData:
 
         if self.data.test_key(frame, name):
             cached = self._load_cache(frame, name)
-            if cached:
+            if cached is not None:
                 return cached
             data = self.data[frame, name]
             data = interp(self.pqw, self.pqw_from, data, order=self.interp_order)
