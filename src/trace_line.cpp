@@ -139,27 +139,6 @@ class LineTracer {
             fvec ret;
             for (size_t i = 0; i < N; ++i)
                 ret[i] = interp.gather(m_data[i])[0];
-            auto icoord = simd::to_int(coord);
-            auto idx = simd::reduce_add(icoord * m_strides);
-
-            constexpr size_t num_interp_pt = interp.size();
-            int closest = interp.index(0)[0];
-            for (int i = 0; i < num_interp_pt; ++i) {
-                int iidx = interp.index(i)[0];
-                if (std::abs(iidx - idx) < std::abs(closest - idx))
-                    closest = iidx;
-            }
-            //printf("vec val: (%.2f, %.2f, %.2f), rel: (%.2f, %.2f, %.2f), idx: (%d, %d, %d)\n%d -> (%d)\n",
-            //    ret[0], ret[1], ret[2],
-            //    m_data[0][idx],
-            //    m_data[1][idx],
-            //    m_data[2][idx],
-            //    icoord[0],
-            //    icoord[1],
-            //    icoord[2],
-            //    idx,
-            //    closest
-            //);
             return ret;
         }
 
@@ -436,15 +415,6 @@ class LineTracer {
                     if (skips[0]+skips[1] >= line_len)
                         continue;
                     uint16_t result_flag = (get_flag(line[skips[0]]) << 8) | get_flag(line[line_len-skips[1]-1]);
-
-                    bool seed_in = false;
-                    for (int i = skips[0]; i < line_len-skips[1]; ++i) {
-                        if (simd::all(line[i] == seed))
-                            seed_in = true;
-                    }
-                    if (not seed_in) {
-                        printf("Seed not in line\n");
-                    }
 
                     result_ptr[r_idx] = result_flag;
                     trace_grid.set_lines(
