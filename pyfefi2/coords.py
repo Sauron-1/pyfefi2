@@ -95,11 +95,11 @@ class Coordinates:
         else:
             cls = coords.CartesianModf
 
-        coord_args = np.array(config.get('pyfefiparams', {}).get('coord_args', None), dtype=self.dtype).reshape(6, 4)
+        coord_args = config.get('pyfefiparams', {}).get('coord_args', None)
         if coord_args is None:
             kernel = cls(deltas, self.limits)
         else:
-            kernel = cls(deltas, self.limits, coord_args)
+            kernel = cls(deltas, self.limits, np.array(coord_args).reshape(6, 4))
 
         self._bind_kernel(kernel)
         self.grid_size = np.array(kernel.grid_sizes())
