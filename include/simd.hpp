@@ -34,7 +34,7 @@ FORCE_INLINE constexpr void constexpr_for(Functor&& functor) {
 // Math functions
 template<typename T>
 requires(std::is_arithmetic_v<T>)
-FORCE_INLINE constexpr T rsqrt(const T& val) {
+FORCE_INLINE constexpr auto rsqrt(const T& val) {
     return T(1) / sqrt(val);
 }
 
@@ -553,6 +553,7 @@ FORCE_INLINE constexpr vec<T, N> permute(const vec<T, N>& v) {
  * Binary operations and functions
  */
 #define SIMD_MAP_BINARY_FN(FNNAME) \
+    using std::FNNAME; \
     template<typename T, size_t N> \
     FORCE_INLINE constexpr vec<T, N> FNNAME (const vec<T, N>& v1, const vec<T, N>& v2) { \
         if constexpr (vec<T, N>::is_simd) \

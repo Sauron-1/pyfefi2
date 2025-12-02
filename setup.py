@@ -67,7 +67,7 @@ class CMakeBuild(build_ext):
             cmake_args += [f'-DCMAKE_CXX_COMPILER={cxx_compiler}']
         build_system = env.pop('BUILD_SYS', None)
         if build_system:
-            cmake_args += [f'-G{build_system}']
+            cmake_args += [f'-G {build_system}']
 
         py_exec = env.pop('PYTHON_EXEC', sys.executable)
         cmake_args += [f'-DPython_EXECUTABLE={py_exec}']

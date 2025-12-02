@@ -1,6 +1,5 @@
 recursive-include include *
 recursive-include src *
 recursive-include thirdparty *
-include requirements.txt
 include CMakeLists.txt
 exclude tests/*

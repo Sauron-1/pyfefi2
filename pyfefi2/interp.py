@@ -1,11 +1,12 @@
 import numpy as np
 
 from .pyfefi_kernel import interp as interp_kernel
+from .pyfefi_kernel import quick_stack
 
 def _stack_last_trans(arrs):
     if len(arrs) == 1:
         return arrs[0]
-    arrs = np.stack(arrs, axis=0)
+    arrs = quick_stack(arrs)
     indices = list(range(1, arrs.ndim))
     indices.append(0)
     return np.transpose(arrs, indices)

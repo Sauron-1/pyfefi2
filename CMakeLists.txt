@@ -9,6 +9,7 @@ endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 
+set(PYBIND11_FINDPYTHON NEW)
 if (NOT DEFINED CMAKE_INTERPROCEDURAL_OPTIMIZATION)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 endif()
@@ -61,6 +62,7 @@ pybind11_add_module(pyfefi_kernel
     src/interp/interp_4order.cpp
     src/trace_line.cpp
     src/module.cpp
+    src/py_utils.cpp
 )
 
 target_link_libraries(pyfefi_kernel PUBLIC xsimd)

@@ -6,14 +6,44 @@ import os
 from scipy import constants as C
 from collections import OrderedDict
 import psutil
+import numba as nb
+import time as py_time
 
-from typing import Union, Tuple, Optional
+from typing import Union, Tuple, Optional, Dict
 
 from .slices import SlcTranspose
 from .config import Config
 from .interp import interp
+from .pyfefi_kernel import quick_stack
+
+def timeit(fn):
+    """
+    For benchmarking.
+    """
+    def wrapper(*args, **kwargs):
+        t0 = py_time.perf_counter()
+        res = fn(*args, **kwargs)
+        print("Time elapsed by {}: {:.3f} s".format(fn.__name__, py_time.perf_counter() - t0))
+        return res
+    return wrapper
+
+class RegisteredFunction:
+
+    def __init__(self, fn):
+        self._var_names = fn.__code__.co_varnames
+        fn_sigs = [dtype(*((dtype,)*len(self._var_names))) for dtype in [nb.f4, nb.f8]]
+        if os.environ.get('PYFEFI_PERF', None) is not None:
+            self._fn = timeit(nb.vectorize(fn_sigs, target='parallel')(fn))
+        else:
+            self._fn = nb.vectorize(fn_sigs, target='parallel')(fn)
+
+    def __call__(self, obj, frame):
+        var_list = [obj[frame, name] for name in self._var_names]
+        return self._fn(*var_list)
 
 class Data:
+
+    registered_fns : Dict[str, RegisteredFunction] = {}
 
     def __init__(
             self,
@@ -116,15 +146,19 @@ class Data:
         if cache_key in self.array_caches:
             self.array_caches.move_to_end(cache_key, last=True)
             return self.array_caches[cache_key]
-        if len(self.array_caches) >= self.max_arrays:
-            self.array_caches.popitem(last=False)
+        
+        if name in self.registered_fns:
+            data = self.registered_fns[name](self, frame)
+        else:
+            if len(self.array_caches) >= self.max_arrays:
+                self.array_caches.popitem(last=False)
 
-        ds = self._open(frame)
+            ds = self._open(frame)
 
-        if not name in ds.variables:
-            raise KeyError(f"Variable {name} not found in dataset")
-        data = ds.variables[name][self.slice_for_nc].filled()
-        data = self.trans_op(data, 2, 1, 0)
+            if not name in ds.variables:
+                raise KeyError(f"Variable {name} not found in dataset")
+            data = ds.variables[name][self.slice_for_nc].filled()
+            data = self.trans_op(data, 2, 1, 0)
 
         self.array_caches[cache_key] = data
         return data
@@ -143,6 +177,8 @@ class Data:
         cache_key = f'{name}_{frame:05d}'
         if cache_key in self.array_caches:
             return True
+        if name in self.registered_fns:
+            return True
         ds = self._open(frame)
         if name in ds.variables:
             return True
@@ -151,11 +187,13 @@ class Data:
     def __getitem__(self, args) -> np.ndarray:
         frame, name = args
         data = None
+        if name in ['x', 'y', 'z']:
+            return getattr(self, name)
         try:
             data = self._load(frame, name)
         except KeyError:
             data = [self._load(frame, name+ax_name) for ax_name in 'xyz']
-            data = self.trans_op(np.stack(data, axis=0), 1, 2, 3, 0)
+            data = self.trans_op(quick_stack(data), 1, 2, 3, 0)
         return data
 
     def _calcuate_coordinates(self):
@@ -186,6 +224,14 @@ class Data:
     def z(self):
         self._init_coordinates()
         return self._z
+
+    @classmethod
+    def register(cls, name):
+        def decorator(fn):
+            reg_fn = RegisteredFunction(fn)
+            cls.registered_fns[name] = reg_fn
+            return fn
+        return decorator
 
 class InterpData:
 
@@ -249,7 +295,7 @@ class InterpData:
 
         self._coords_initialized = True
 
-    def clear():
+    def clear(self):
         self.array_caches.clear()
 
     def _load_cache(self, frame, name):
@@ -273,6 +319,9 @@ class InterpData:
         self._init_coords()
         frame, name = args
 
+        if name in ['x', 'y', 'z']:
+            return getattr(self, name)
+
         if self.data.test_key(frame, name):
             cached = self._load_cache(frame, name)
             if cached is not None:
@@ -294,4 +343,4 @@ class InterpData:
                     data = interp_data.pop(0)
                     self._set_cache(frame, names[i], data)
                     cached[i] = data
-            return self.trans_op(np.stack(cached, axis=0), 1, 2, 3, 0)
+            return self.trans_op(quick_stack(cached), 1, 2, 3, 0)
