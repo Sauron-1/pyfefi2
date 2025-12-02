@@ -254,8 +254,6 @@ class LineTracer {
             std::vector<std::vector<fvec>> results(num_points);
 #pragma omp parallel for schedule(guided)
             for (int64_t i = 0; i < num_points; ++i) {
-                int tid = omp_get_thread_num();
-                int my_num;
                 results[i] = bidir_trace(coords[i], cfg, [this, term_val](auto& pos) { return terminate(pos, term_val); });
             }
 

@@ -25,3 +25,6 @@ dependencies = [
     "psutil",
     "netCDF4"
 ]
+
+[tool.setuptools]
+packages = ["pyfefi2", "pyfefi2.fns"]

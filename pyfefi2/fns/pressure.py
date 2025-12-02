@@ -1,5 +1,5 @@
 import math
-from .data import Data
+from ..data import Data
 
 @Data.register('Pth')
 def thermal_pressure(Ti1, Ni):

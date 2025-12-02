@@ -1,5 +1,5 @@
 import math
-from .data import Data
+from ..data import Data
 
 @Data.register('B_norm')
 def norm_B(Bx, By, Bz):
