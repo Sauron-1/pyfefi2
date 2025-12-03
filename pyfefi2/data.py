@@ -84,7 +84,7 @@ class Data:
 
         # initialize data path and cache
         self.path = self.config.path
-        self.fn_prefix = self.config.get_prefix(self.config.diag_idx)
+        self.fn_prefix = self.config.get_prefix()
         self.trans_op = SlcTranspose(self.slice_for_nc)
 
         self.nx, self.ny, self.nz = self.coordinates.slice_size(self.slices)

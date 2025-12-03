@@ -16,7 +16,7 @@ class Config:
             diag_idx: int = 0,
             data_type: str = "float32",
             cache_folder: Optional[str]=None,
-            Re: float = 6371e3):
+            Re: Optional[float] = None):
         """
         Initializes the configuration for a simulation.
 
@@ -45,7 +45,8 @@ class Config:
         self.coordinates = Coordinates(self, idx=self.diag_idx, dtype=self.dtype)
         self.grid_size = self.coordinates.grid_size
 
-        self.Re = Re
+        self._Re = Re
+        self._prefix = None
 
     def pqw(self, slices=None):
         """
@@ -139,33 +140,50 @@ class Config:
     def get(self, key: str, default: Any = None) -> Any:
         return self._conf.get(key, default)
 
-    def get_prefix(self, diag_idx):
+    def get_prefix(self):
         """
-        Returns the file prefix for a given diagnostic index.
-
-        Args:
-            diag_idx (int): The diagnostic index.
+        Returns the file prefix.
 
         Returns:
             str: The file prefix.
         """
+        if self._prefix is not None:
+            return self._prefix
+
         prefixes = ['fieldds', 'fieldns', 'fieldmp', 'fieldeq']
-        prefix = prefixes[diag_idx-1]
+        prefix = prefixes[self.diag_idx]
 
-        if diag_idx > 0:
-            return prefix
+        if self.diag_idx > 0:
+            self._prefix = prefix
+        elif os.path.exists(os.path.join(self.path, prefix + '%05d.nc' % 1)):
+            if self._Re is None:
+                self._Re = 2440e3
+            self._prefix = prefix
+        elif os.path.exists(os.path.join(self.path, 'field' + '%05d.nc' % 1)):
+            if self._Re is None:
+                self._Re = 6371e3
+            self._prefix = 'field'
+        else:
+            # pass two: list all files
+            fns = os.listdir(self.path)
+            for fn in fns:
+                if fn.startswith(prefix):
+                    self._Re = 2440e3
+                    self._prefix = prefix
+                    break
+            else:
+                self._Re = 6371e3
+                self._prefix = 'field'
+        return self._prefix
 
-        if os.path.exists(os.path.join(self.path, prefix + '%05d.nc' % 1)):
-            return prefix
-        if os.path.exists(os.path.join(self.path, 'field' + '%05d.nc' % 1)):
-            return 'field'
-
-        # pass two: list all files
-        fns = os.listdir(self.path)
-        for fn in fns:
-            if fn.startswith(prefix):
-                return prefix
-        return 'field'
+    @property
+    def Re(self):
+        if self._Re is not None:
+            return self._Re
+        self.get_prefix()
+        if self._Re is None:
+            raise RuntimeError('Cannot automatically detect Re. Provide it when construct the config object')
+        return self._Re
 
     def minimum_slice(self, xs, ys=None, zs=None, extra=None):
         """
