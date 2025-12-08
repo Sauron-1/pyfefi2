@@ -23,7 +23,8 @@ dependencies = [
     "scipy",
     "f90nml",
     "psutil",
-    "netCDF4"
+    "netCDF4",
+    "numba"
 ]
 
 [tool.setuptools]

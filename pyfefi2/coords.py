@@ -104,9 +104,9 @@ class Coordinates:
         self._bind_kernel(kernel)
         self.grid_size = np.array(kernel.grid_sizes())
 
-        self.cuv_limits = ((0, self.grid_size[0]),
-                           (0, self.grid_size[1]),
-                           (0, self.grid_size[2]))
+        self.cuv_limits = np.array([(0, self.grid_size[0]),
+                                    (0, self.grid_size[1]),
+                                    (0, self.grid_size[2])])
 
     def _init_spehere_mod(self, config):
         if self.dtype.itemsize == 64:
@@ -116,10 +116,10 @@ class Coordinates:
         kernel = cls()
         self._bind_kernel(kernel)
 
-        plim = (kernel.solve_grid(self.limits[0][0]), kernel.solve_grid(self.limits[0][1]))
-        qlim = (lim*np.pi/180 for lim in self.limits[1])
-        wlim = (lim*np.pi/180 for lim in self.limits[2])
-        self.cuv_limits = (plim, qlim, wlim)
+        plim = [kernel.solve_grid(self.limits[0][0]), kernel.solve_grid(self.limits[0][1])]
+        qlim = [lim*np.pi/180 for lim in self.limits[1]]
+        wlim = [lim*np.pi/180 for lim in self.limits[2]]
+        self.cuv_limits = np.array([plim, qlim, wlim])
 
     def slice_size(self, slices):
         """

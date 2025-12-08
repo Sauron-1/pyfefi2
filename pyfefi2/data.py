@@ -90,7 +90,7 @@ class Data:
         self.nx, self.ny, self.nz = self.coordinates.slice_size(self.slices)
         self.grid_size = (self.nx, self.ny, self.nz)
         if max_memory <= 0:
-            max_memory = psutil.virtual_memory().total / 3
+            max_memory = min(psutil.virtual_memory().total / 3, 2e10)
         self.max_memory = max_memory
         num_points = self.nx * self.ny * self.nz
         array_size = self.dtype.itemsize * num_points
@@ -270,7 +270,7 @@ class InterpData:
         array_size = get_len(xs)*get_len(ys)*get_len(zs) * data.dtype.itemsize
         if max_memory is None:
             if self.data is None:
-                max_memory = psutil.virtual_memory().total / 3
+                max_memory = min(psutil.virtual_memory().total / 3, 2e10)
             else:
                 max_memory = self.data.max_memory
         self.max_memory = max_memory
