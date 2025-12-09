@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pyfefi2"
-version = "0.1.3"
+version = "0.1.4"
 authors = [ 
     { name = "Junyi Ren", email = "jyren9871@gmail.com" },
 ]
