@@ -61,6 +61,10 @@ class Units:
         self._units = {}
         self.scale_factor = Re / (di / R_lambda)
 
+        # Constants
+        self['kB'] = C.k
+        self['mu0'] = C.mu_0
+
         # Basic units
         self['m'] = C.m_p
         self['B'] = B0
@@ -70,7 +74,7 @@ class Units:
             self['L'] = Re
             self['t'] = self.scale_factor / omega_i
         else:
-            self['L'] = di * R_lambda
+            self['L'] = di / R_lambda
             self['t'] = 1 / omega_i
 
         # Derived units
@@ -93,15 +97,17 @@ class Units:
         self.__init_alias()
 
     def __init_alias(self):
-        self['R'] = self['L']
-        self['V'] = self['v']
-        self['Up'] = self['v']
-        self['Ni'] = self['N']
+        self['R'] = self.L
+        self['V'] = self.v
+        self['Up'] = self.v
+        self['Ni'] = self.N
+        self['mi'] = self.m
+        self['e'] = self.q
         for axis in 'xyz':
             for name in ['B', 'E', 'J', 'Up']:
                 self[f'{name}{axis}'] = self[name]
         for name in ['Ti1', 'Ti1par', 'Ti1per']:
-            self[name] = self['T']
+            self[name] = self.T
 
     def __getitem__(self, name):
         if name in self._units:

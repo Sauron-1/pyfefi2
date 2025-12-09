@@ -4,6 +4,7 @@ import os
 import warnings
 from typing import Optional, Any
 import numpy as np
+from scipy import constants as C
 
 from .coords import Coordinates
 from .units import Units
@@ -184,6 +185,13 @@ class Config:
         if self._Re is None:
             raise RuntimeError('Cannot automatically detect Re. Provide it when construct the config object')
         return self._Re
+
+    @property
+    def mu0(self):
+        if not hasattr(self, '_mu0'):
+            R_lambda = self['input_parameters']['roverL']
+            self._mu0 = R_lambda**2 * C.mu_0
+        return self._mu0
 
     def minimum_slice(self, xs, ys=None, zs=None, extra=None):
         """

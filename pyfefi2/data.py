@@ -187,6 +187,8 @@ class Data:
     def __getitem__(self, args) -> np.ndarray:
         frame, name = args
         data = None
+        if name in ['mi', 'kB', 'e', 'mu0']:
+            return 1
         if name in ['x', 'y', 'z']:
             return getattr(self, name)
         try:
@@ -254,6 +256,7 @@ class InterpData:
 
         if isinstance(data, Data):
             self.data = data
+            self.config = data.config
         else:
             self.data = None
             self.config = data
@@ -319,6 +322,8 @@ class InterpData:
         self._init_coords()
         frame, name = args
 
+        if name in ['mi', 'kB', 'e', 'mu0']:
+            return 1
         if name in ['x', 'y', 'z']:
             return getattr(self, name)
 
