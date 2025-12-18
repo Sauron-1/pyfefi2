@@ -36,7 +36,7 @@ FORCE_INLINE simd::vec<T, N> solve_grid_impl(const simd::vec<T, N>& x) {
 template<typename T, size_t N>
 FORCE_INLINE simd::vec<T, N> myatan2(const simd::vec<T, N>& y, const simd::vec<T, N>& x) {
     if constexpr (simd::has_simd_v<T, N>)
-        return simd::select(simd::abs(x) == 0, T(0.5*M_PI), simd::atan2(y, x));
+        return simd::select(simd::abs(x) == 0, simd::sign(y)*T(0.5*M_PI), simd::atan2(y, x));
     return simd::atan2(y, x);
 }
 
