@@ -1,5 +1,6 @@
 #include <simd.hpp>
 #include <numbers>
+#include <limits>
 
 #include <coords/coords.hpp>
 #include <coords/coords_ext.hpp>
@@ -30,6 +31,13 @@ FORCE_INLINE simd::vec<T, N> solve_grid_impl(const simd::vec<T, N>& x) {
         p -= delta / diff;
     }
     return p;
+}
+
+template<typename T, size_t N>
+FORCE_INLINE simd::vec<T, N> myatan2(const simd::vec<T, N>& y, const simd::vec<T, N>& x) {
+    if constexpr (simd::has_simd_v<T, N>)
+        return simd::select(simd::abs(x) == 0, T(0.5*M_PI), simd::atan2(y, x));
+    return simd::atan2(y, x);
 }
 
 template<typename T>
@@ -113,8 +121,8 @@ class SphereMod : public Coordinates<T> {
             auto rho = simd::hypot(_x, _z);
             auto r = simd::hypot(rho, _y);
             auto _p = solve_grid_impl(r),
-                 _q = simd::atan2(rho, _y),
-                 _w = simd::atan2(-_z, _x);
+                 _q = myatan2(rho, _y),
+                 _w = myatan2(-_z, _x);
             _p.storeu(p);
             _q.storeu(q);
             _w.storeu(w);
