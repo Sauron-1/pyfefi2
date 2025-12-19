@@ -5,7 +5,7 @@
 
 #pragma once
 
-template<size_t dim, size_t order, typename Float>
+template<size_t dim, size_t order, typename Float, size_t simd_width>
 auto interp_impl(
         const std::array<py::array_t<Float>, dim>& coords,
         const std::array<Float, dim>& start,
@@ -62,7 +62,6 @@ auto interp_impl(
     for (int d = 0; d < dim; ++d) coords_ptrs[d] = coords[d].data();
 
     // Real loop
-    constexpr size_t simd_width = simd::simd_width_v<Float>;
     std::array<Float, dim> dx_inv, fill_pos;
     for (int d = 0; d < dim; ++d) dx_inv[d] = 1/dx[d];
     for (int d = 0; d < dim; ++d) fill_pos[d] = (Int)(order/2);
@@ -131,7 +130,7 @@ auto interp_impl(
     return dsts;
 }
 
-template<size_t dim, size_t order, typename Float>
+template<size_t dim, size_t order, typename Float, size_t simd_width=simd::simd_width_v<Float>>
 auto interp(
         const std::array<py::array_t<Float>, dim>& coords_to,
         const std::array<py::array_t<Float>, dim>& coords_from,
@@ -146,5 +145,5 @@ auto interp(
         dx[d] = (coords_from[d].at(N-1) - start[d]) / (N-1);
     }
 
-    return interp_impl<dim, order, Float>(coords_to, start, dx, srcs);
+    return interp_impl<dim, order, Float, simd_width>(coords_to, start, dx, srcs);
 }

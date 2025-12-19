@@ -1,6 +1,5 @@
 #include <simd.hpp>
 #include <numbers>
-#include <limits>
 
 #include <coords/coords.hpp>
 #include <coords/coords_ext.hpp>
@@ -40,11 +39,9 @@ FORCE_INLINE simd::vec<T, N> myatan2(const simd::vec<T, N>& y, const simd::vec<T
     return simd::atan2(y, x);
 }
 
-template<typename T>
+template<typename T, size_t simd_width=simd::simd_width_v<T>>
 class SphereMod : public Coordinates<T> {
     public:
-        static constexpr size_t simd_width = simd::simd_width_v<T>;
-
         T solve_grid(T x) {
             return solve_grid_impl(simd::vec<T, 1>{x})[0];
         }

@@ -143,10 +143,9 @@ class CMAxis {
         int idx_min, len;
 };
 
-template<typename T>
+template<typename T, size_t simd_width=simd::simd_width_v<T>>
 class CartesianMod : public Coordinates<T> {
     public:
-        static constexpr size_t simd_width = simd::simd_width_v<T>;
         using vec_t = simd::vec<T, simd_width>;
         using vec1_t = simd::vec<T, 1>;
 

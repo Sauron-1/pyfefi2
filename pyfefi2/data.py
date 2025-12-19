@@ -235,6 +235,10 @@ class Data:
             return fn
         return decorator
 
+    def time(self, frame):
+        ds = self._open(frame)
+        return ds['param'][0]
+
 class InterpData:
 
     def __init__(self, data: Union[Data, Config], xs, ys=None, zs=None, max_memory=None, order=2):
@@ -349,3 +353,7 @@ class InterpData:
                     self._set_cache(frame, names[i], data)
                     cached[i] = data
             return self.trans_op(quick_stack(cached), 1, 2, 3, 0)
+
+    def time(self, frame):
+        self._init_coords()
+        return self.data.time(frame)

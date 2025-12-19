@@ -974,4 +974,36 @@ SIMD_DEFINE_MEMBER_ASSIGN(operator^=, ^);
 SIMD_DEFINE_MEMBER_ASSIGN(operator>>=, >>);
 SIMD_DEFINE_MEMBER_ASSIGN(operator<<=, <<);
 
+[[gnu::const]] FORCE_INLINE size_t simd_reg_bytes() {
+    auto supported_arch = xsimd::available_architectures();
+
+    if (supported_arch.has(xsimd::avx512f{}) or
+        supported_arch.has(xsimd::detail::sve<512>{}) or
+        supported_arch.has(xsimd::detail::rvv<512>{}))
+        return 64;
+
+    if (supported_arch.has(xsimd::avx{}) or
+        supported_arch.has(xsimd::detail::sve<256>{}) or
+        supported_arch.has(xsimd::detail::rvv<256>{}))
+        return 32;
+
+    if (supported_arch.has(xsimd::sse2{}) ||
+        supported_arch.has(xsimd::neon64{}) ||
+        supported_arch.has(xsimd::neon{}) ||
+        supported_arch.has(xsimd::vsx{}) ||
+        supported_arch.has(xsimd::wasm{}) ||
+        supported_arch.has(xsimd::detail::sve<128>{}) ||
+        supported_arch.has(xsimd::detail::rvv<128>{})) {
+        return 16;
+    }
+
+    return 0;
+}
+
+template<typename T>
+FORCE_INLINE size_t simd_width_rt(T = 0) {
+    const size_t reg_size = simd_reg_bytes();
+    return reg_size / sizeof(T);
+}
+
 } // namespace simd
