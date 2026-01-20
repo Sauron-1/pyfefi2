@@ -198,6 +198,14 @@ class Data:
             data = self.trans_op(quick_stack(data), 1, 2, 3, 0)
         return data
 
+    def interpolate(self, points, frame, name, order=2):
+        points = np.array(points)
+        xs = np.require(points[..., 0], dtype=self.dtype, requirements='C')
+        ys = np.require(points[..., 1], dtype=self.dtype, requirements='C')
+        zs = np.require(points[..., 2], dtype=self.dtype, requirements='C')
+        pqw = self.coordinates.from_cartesian(xs, ys, zs)
+        return interp(pqw, self.pqw, self[frame, name], order)
+
     def _calcuate_coordinates(self):
         P, Q, W = np.meshgrid(self.p, self.q, self.w, indexing='ij')
         x, y, z = self.coordinates.to_cartesian(P, Q, W)
@@ -353,6 +361,18 @@ class InterpData:
                     self._set_cache(frame, names[i], data)
                     cached[i] = data
             return self.trans_op(quick_stack(cached), 1, 2, 3, 0)
+
+    def interpolate(self, points, frame, name, order=2):
+        raw_data = self[frame, name]
+        points = np.array(points)
+        xs = np.require(points[..., 0], dtype=self.config.dtype, requirements='C')
+        ys = np.require(points[..., 1], dtype=self.config.dtype, requirements='C')
+        zs = np.require(points[..., 2], dtype=self.config.dtype, requirements='C')
+        return interp([xs, ys, zs], [self.xs, self.ys, self.zs], raw_data, order)
+
+    def interp_raw(self, points, frame, name, order=2):
+        self._init_coords()
+        return self.data.interpolate(points, frame, name, order)
 
     def time(self, frame):
         self._init_coords()
