@@ -29,13 +29,14 @@ def timeit(fn):
 
 class RegisteredFunction:
 
-    def __init__(self, fn):
+    def __init__(self, fn, vectorize=False):
         self._var_names = fn.__code__.co_varnames
         fn_sigs = [dtype(*((dtype,)*len(self._var_names))) for dtype in [nb.f4, nb.f8]]
+        if vectorize:
+            fn = nb.vectorize(fn_sigs, target='parallel')(fn)
         if os.environ.get('PYFEFI_PERF', None) is not None:
-            self._fn = timeit(nb.vectorize(fn_sigs, target='parallel')(fn))
-        else:
-            self._fn = nb.vectorize(fn_sigs, target='parallel')(fn)
+            fn = timeit(fn)
+        self._fn = fn
 
     def __call__(self, obj, frame):
         var_list = [obj[frame, name] for name in self._var_names]
@@ -198,13 +199,16 @@ class Data:
             data = self.trans_op(quick_stack(data), 1, 2, 3, 0)
         return data
 
-    def interpolate(self, points, frame, name, order=2):
+    def interpolate(self, points, frame, name : str = None, order=2):
         points = np.array(points)
         xs = np.require(points[..., 0], dtype=self.dtype, requirements='C')
         ys = np.require(points[..., 1], dtype=self.dtype, requirements='C')
         zs = np.require(points[..., 2], dtype=self.dtype, requirements='C')
         pqw = self.coordinates.from_cartesian(xs, ys, zs)
-        return interp(pqw, self.pqw, self[frame, name], order)
+        if np.isscalar(frame) and name is not None:
+            return interp(pqw, self.pqw, self[frame, name], order)
+        else:  # "frame" is actually data
+            return interp(pqw, self.pqw, frame, order)
 
     def _calcuate_coordinates(self):
         P, Q, W = np.meshgrid(self.p, self.q, self.w, indexing='ij')
@@ -236,9 +240,9 @@ class Data:
         return self._z
 
     @classmethod
-    def register(cls, name):
+    def register(cls, name, vectorize=False):
         def decorator(fn):
-            reg_fn = RegisteredFunction(fn)
+            reg_fn = RegisteredFunction(fn, vectorize)
             cls.registered_fns[name] = reg_fn
             return fn
         return decorator
@@ -362,15 +366,18 @@ class InterpData:
                     cached[i] = data
             return self.trans_op(quick_stack(cached), 1, 2, 3, 0)
 
-    def interpolate(self, points, frame, name, order=2):
-        raw_data = self[frame, name]
+    def interpolate(self, points, frame, name=None, order=2):
         points = np.array(points)
         xs = np.require(points[..., 0], dtype=self.config.dtype, requirements='C')
         ys = np.require(points[..., 1], dtype=self.config.dtype, requirements='C')
         zs = np.require(points[..., 2], dtype=self.config.dtype, requirements='C')
-        return interp([xs, ys, zs], [self.xs, self.ys, self.zs], raw_data, order)
+        if np.isscalar(frame) and name is not None:
+            raw_data = self[frame, name]
+            return interp([xs, ys, zs], [self.xs, self.ys, self.zs], raw_data, order)
+        else:
+            return interp([xs, ys, zs], [self.xs, self.ys, self.zs], frame, order)
 
-    def interp_raw(self, points, frame, name, order=2):
+    def interp_raw(self, points, frame, name=None, order=2):
         self._init_coords()
         return self.data.interpolate(points, frame, name, order)
 

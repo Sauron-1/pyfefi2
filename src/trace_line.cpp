@@ -301,7 +301,7 @@ class LineTracer {
                 for (auto j = 0; j < 2; ++j)
                     if (j < pos.size())
                         for (auto d = 0; d < N; ++d)
-                            ptr[i*4*N + (1-j)*N + d] = pos[pos.size()-j-1][d];
+                            ptr[i*4*N + (4-j-1)*N + d] = pos[pos.size()-j-1][d];
             }
             return result;
         }
