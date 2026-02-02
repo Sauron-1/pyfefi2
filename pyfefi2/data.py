@@ -317,6 +317,10 @@ class InterpData:
     def clear(self):
         self.array_caches.clear()
 
+    def clear_raw(self):
+        if self.data is not None:
+            self.data.clear()
+
     def _load_cache(self, frame, name):
         cache_key = f'{name}_{frame:05d}'
         if cache_key in self.array_caches:
