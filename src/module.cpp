@@ -2,6 +2,7 @@
 
 #include <coords/coords_ext.hpp>
 #include <interp/interp_ext.hpp>
+#include <compress/compress_ext.hpp>
 #include <trace_line.hpp>
 #include <py_utils.hpp>
 
@@ -18,6 +19,9 @@ PYBIND11_MODULE(pyfefi_kernel, m) {
 
     auto trace_m = m.def_submodule("tracer");
     init_trace_line_ext(trace_m);
+
+    auto compress_m = m.def_submodule("compress");
+    init_compress_ext(compress_m);
 
     init_utils_ext(m);
 }

@@ -11,7 +11,7 @@ class _Slice:
         Convert a slice object to on that keep dims.
         """
         if np.isscalar(s):
-            return slice(s, s+1)
+            return int(s)
         else:
             return s
 
@@ -21,8 +21,8 @@ class _Slice:
         The difference is, the returned object will always keep dimension
         of the original ndarray.
         """
-        #return tuple(self.convert_slice(s) for s in args)
-        return args
+        return tuple(self.convert_slice(s) for s in args)
+        #return args
 
     def squeezer(cls, slc):
         result = []

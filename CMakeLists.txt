@@ -21,41 +21,56 @@ include(FetchContent)
 
 find_package(OpenMP REQUIRED)
 
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/pybind11")
-else()
-    message(STATUS "Trying to use system pybind11.")
-    find_package(pybind11 QUIET)
-    if (NOT pybind11_FOUND)
-        message(STATUS "pybind11 not found. Trying to download from GitHub.")
-        FetchContent_Declare(
-            pybind11
-            GIT_REPOSITORY https://github.com/pybind/pybind11.git
-            GIT_TAG        v3.0.1
-        )
-        FetchContent_MakeAvailable(pybind11)
+function(find_or_build_package PACKAGE_NAME GITURL GITTAG)
+    if (EXISTS "${CMAKE_SOURCE_DIR}/thirdparty/${PACKAGE_NAME}/CMakeLists.txt")
+        add_subdirectory("${CMAKE_SOURCE_DIR}/thirdparty/${PACKAGE_NAME}")
+    else()
+        message(STATUS "${CMAKE_SOURCE_DIR}/thirdparty/${PACKAGE_NAME}/CMakeLists.txt not found. Trying to use system ${PACKAGE_NAME}.")
+        find_package(${PACKAGE_NAME} QUIET)
+        if (NOT ${PACKAGE_NAME}_FOUND)
+            message(STATUS "System ${PACKAGE_NAME} not found. Trying to download from GitHub.")
+            FetchContent_Declare(
+                ${PACKAGE_NAME}
+                GIT_REPOSITORY ${GITURL}
+                GIT_TAG        ${GITTAG}
+            )
+            FetchContent_MakeAvailable(${PACKAGE_NAME})
+        endif()
     endif()
-endif()
+endfunction()
 
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd/CMakeLists.txt")
-    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/xsimd")
-else()
-    message(STATUS "Trying to use system xsimd.")
-    find_package(xsimd QUIET)
-    if (NOT xsimd_FOUND)
-        message(STATUS "xsimd not found. Trying to download from GitHub.")
-        FetchContent_Declare(
-            xsimd
-            GIT_REPOSITORY https://github.com/xtensor-stack/xsimd.git
-            GIT_TAG        13.2.0
-        )
-        FetchContent_MakeAvailable(xsimd)
-    endif()
+set(BUILD_SZ3_BINARY OFF)
+
+find_or_build_package(xsimd https://github.com/xtensor-stack/xsimd.git 14.0.0)
+find_or_build_package(SZ3 https://github.com/szcompressor/SZ3.git v3.3.2)
+find_or_build_package(pybind11 https://github.com/pybind/pybind11.git v3.0.1)
+
+add_library(compress STATIC
+    src/compress/compress_impl_uint64_t.cpp
+    src/compress/compress_impl_int8_t.cpp
+    src/compress/compress_impl_uint16_t.cpp
+    src/compress/compress_impl_uint32_t.cpp
+    src/compress/compress_impl_double.cpp
+    src/compress/compress_impl_uint8_t.cpp
+    src/compress/compress_impl_float.cpp
+    src/compress/compress_impl_int32_t.cpp
+    src/compress/compress_impl_int64_t.cpp
+    src/compress/compress_impl_int16_t.cpp
+    src/compress/compressed_file.cpp
+)
+
+if(NOT TARGET SZ3::SZ3)
+    add_library(SZ3::SZ3 ALIAS SZ3)
 endif()
+target_link_libraries(compress PUBLIC zstd SZ3::SZ3)
+target_compile_features(compress PUBLIC cxx_std_20)
+target_include_directories(compress PUBLIC include)
+set_target_properties(compress PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 pybind11_add_module(pyfefi_kernel
     src/coords/cartesian_mod.cpp
     src/coords/sphere_mod.cpp
+    src/compress/pymodule.cpp
     src/interp/interp_1order.cpp
     src/interp/interp_2order.cpp
     src/interp/interp_3order.cpp
@@ -65,12 +80,13 @@ pybind11_add_module(pyfefi_kernel
     src/py_utils.cpp
 )
 
-target_link_libraries(pyfefi_kernel PUBLIC xsimd)
-target_link_libraries(pyfefi_kernel PUBLIC OpenMP::OpenMP_CXX)
+target_link_libraries(pyfefi_kernel PUBLIC xsimd OpenMP::OpenMP_CXX compress)
 
 if (CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(compress PRIVATE /O2 /DNDEBUG /arch:${PYFEFI_ARCH})
     target_compile_options(pyfefi_kernel PRIVATE /O2 /fp:fast /DNDEBUG /arch:${PYFEFI_ARCH})
 else()
+    target_compile_options(compress PRIVATE -O3 -DNDEBUG -march=${PYFEFI_ARCH})
     target_compile_options(pyfefi_kernel PRIVATE -O3 -march=${PYFEFI_ARCH} -ffast-math -DNDEBUG)
 endif()
 target_compile_features(pyfefi_kernel PRIVATE cxx_std_20)
