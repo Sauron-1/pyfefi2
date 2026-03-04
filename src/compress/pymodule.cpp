@@ -7,6 +7,7 @@
 #include <format>
 
 #include <compress/compressed_file.hpp>
+#include <compress/compress_ext.hpp>
 
 namespace py = pybind11;
 
@@ -321,4 +322,6 @@ void init_compress_ext(py::module_& m) {
         .def("__getitem__", &PyCompressedFile::get_array, py::arg("name"), "Returns a proxy object allowing for array slice extraction.")
         .def("has_array", &PyCompressedFile::has_array, py::arg("name"), "Check if array presents in the dataset")
         ;
+
+     init_comparray_functions(m);
 }

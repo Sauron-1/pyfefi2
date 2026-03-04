@@ -3,6 +3,7 @@
 
 #include <coords/coords.hpp>
 #include <coords/coords_ext.hpp>
+#include <type_traits>
 
 template<typename T, size_t N>
 FORCE_INLINE simd::vec<T, N> fgrid(const simd::vec<T, N>& p) {
@@ -33,9 +34,13 @@ FORCE_INLINE simd::vec<T, N> solve_grid_impl(const simd::vec<T, N>& x) {
 }
 
 template<typename T, size_t N>
+    requires(std::is_scalar_v<T>)
 FORCE_INLINE simd::vec<T, N> myatan2(const simd::vec<T, N>& y, const simd::vec<T, N>& x) {
-    if constexpr (simd::has_simd_v<T, N>)
-        return simd::select(simd::abs(x) == 0, simd::sign(y)*T(0.5*M_PI), simd::atan2(y, x));
+    if constexpr (simd::has_simd_v<T, N>) {
+        auto tmp = simd::sign(y)*T(0.5*M_PI);
+        auto rel = simd::atan2(y, x);
+        return simd::select(simd::abs(x) == 0, tmp, rel);
+    }
     return simd::atan2(y, x);
 }
 

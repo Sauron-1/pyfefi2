@@ -11,23 +11,7 @@
 #include <omp.h>
 
 #include "compress.hpp"
-
-enum class DataType : uint8_t {
-    INT8 = 0, UINT8, INT16, UINT16, INT32, UINT32, INT64, UINT64,
-    FLOAT32, FLOAT64, UNKNOWN
-};
-
-template<typename T> DataType inline get_data_type() { return DataType::UNKNOWN; }
-template<> DataType inline get_data_type<int8_t>() { return DataType::INT8; }
-template<> DataType inline get_data_type<uint8_t>() { return DataType::UINT8; }
-template<> DataType inline get_data_type<int16_t>() { return DataType::INT16; }
-template<> DataType inline get_data_type<uint16_t>() { return DataType::UINT16; }
-template<> DataType inline get_data_type<int32_t>() { return DataType::INT32; }
-template<> DataType inline get_data_type<uint32_t>() { return DataType::UINT32; }
-template<> DataType inline get_data_type<int64_t>() { return DataType::INT64; }
-template<> DataType inline get_data_type<uint64_t>() { return DataType::UINT64; }
-template<> DataType inline get_data_type<float>() { return DataType::FLOAT32; }
-template<> DataType inline get_data_type<double>() { return DataType::FLOAT64; }
+#include "array.hpp"
 
 struct FileHeader {
     uint64_t flags = 0;
@@ -38,14 +22,6 @@ struct FileHeader {
 struct FileHeaderEntry {
     char name[24] = {0};
     uint64_t offset = 0;
-};
-
-struct ArrayHeader {
-    DataType type; // uint8_t
-    uint8_t dim;
-    uint8_t compressed;
-    uint64_t shape[3] = {1, 1, 1};
-    uint64_t block_size[3] = {1, 1, 1};
 };
 
 class CompressedFile {

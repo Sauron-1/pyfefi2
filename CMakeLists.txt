@@ -71,6 +71,7 @@ pybind11_add_module(pyfefi_kernel
     src/coords/cartesian_mod.cpp
     src/coords/sphere_mod.cpp
     src/compress/pymodule.cpp
+    src/compress/array.cpp
     src/interp/interp_1order.cpp
     src/interp/interp_2order.cpp
     src/interp/interp_3order.cpp

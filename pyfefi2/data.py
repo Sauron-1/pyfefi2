@@ -1,5 +1,4 @@
 import numpy as np
-import netCDF4
 import math
 import f90nml
 import os
@@ -14,7 +13,9 @@ from typing import Union, Tuple, Optional, Dict
 from .slices import SlcTranspose
 from .config import Config
 from .interp import interp
-from .pyfefi_kernel import quick_stack, compress
+from .pyfefi_kernel import quick_stack
+
+from .dataset import open_dataset
 
 def timeit(fn):
     """
@@ -134,15 +135,8 @@ class Data:
         if len(self.ds_caches) >= self.max_open:
             self.ds_caches.popitem(last=False)
 
-        data_fn = os.path.join(self.path, f'{self.fn_prefix}{frame:05d}.sz3')
-        if os.path.exists(data_fn):
-            ds = compress.CompressedFile(data_fn, mode='r')
-        else:
-            data_fn = os.path.join(self.path, f'{self.fn_prefix}{frame:05d}.nc')
-            if not os.path.exists(data_fn):
-                raise RuntimeError(f"Data file {data_fn} does not exist.")
-            ds = netCDF4.Dataset(data_fn)
-
+        base_fn = f'{self.fn_prefix}{frame:05d}'
+        ds = open_dataset(self.path, base_fn)
         self.ds_caches[frame] = ds
         return ds
 
@@ -160,14 +154,7 @@ class Data:
 
             ds = self._open(frame)
 
-            if isinstance(ds, netCDF4.Dataset):
-                if not name in ds.variables:
-                    raise KeyError(f"Variable {name} not found in dataset")
-                data = ds.variables[name][self.slice_for_nc].filled()
-            else: # this is a compressed file
-                if not ds.has_array(name):
-                    raise KeyError(f"Variable {name} not found in dataset")
-                data = ds[name][self.slice_for_nc]
+            data = ds[name, self.slice_for_nc]
             data = self.trans_op(data, 2, 1, 0)
 
         self.array_caches[cache_key] = data
@@ -190,12 +177,13 @@ class Data:
         if name in self.registered_fns:
             return True
         ds = self._open(frame)
-        if isinstance(ds, netCDF4.Dataset):
-            if name in ds.variables:
-                return True
-        else:
-            return ds.has_array(name)
-        return False
+        #if isinstance(ds, netCDF4.Dataset):
+        #    if name in ds.variables:
+        #        return True
+        #else:
+        #    return ds.has_array(name)
+        #return False
+        return ds.has_array(name)
 
     def __getitem__(self, args) -> np.ndarray:
         frame, name = args
@@ -261,7 +249,8 @@ class Data:
 
     def time(self, frame):
         ds = self._open(frame)
-        return ds['param'][0]
+        #return ds['param'][0]
+        return ds['param', 0]
 
 class InterpData:
 

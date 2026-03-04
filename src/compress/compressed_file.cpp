@@ -1,4 +1,5 @@
 #include <compress/compressed_file.hpp>
+#include <compress/array.hpp>
 
 CompressedFile::CompressedFile(const std::string& filename, const CompressConfig& config, std::ios::openmode mode, size_t max_arrays):
     m_filename(filename), m_default_config(config), m_max_arrays(max_arrays)
@@ -55,109 +56,7 @@ void CompressedFile::put_array(
     uint64_t array_offset = m_file.tellp();
     m_entries[name] = array_offset;
 
-    // Generate and write header
-    ArrayHeader arr_hdr;
-    arr_hdr.type = get_data_type<T>();
-    arr_hdr.dim = Dim;
-    arr_hdr.compressed = compressed ? 1 : 0;
-    for (size_t i = 0; i < Dim; ++i) {
-        arr_hdr.shape[i] = shape[i];
-        arr_hdr.block_size[i] = block_shape[i];
-    }
-
-    std::array<size_t, Dim> grid;
-    for (int i = 0; i < Dim; ++i)
-        grid[i] = (shape[i] + block_shape[i] - 1) / block_shape[i];
-    size_t num_blocks = 1;
-    for (auto g : grid) num_blocks *= g;
-
-    m_file.write(reinterpret_cast<const char*>(&arr_hdr), sizeof(arr_hdr));
-    uint64_t offsets_pos = m_file.tellp();
-    std::vector<uint64_t> block_offsets(num_blocks + 1, 0);
-
-    // Prepare workers
-    int num_threads = omp_get_max_threads();
-    size_t block_size = 1;
-    for (auto s : block_shape) block_size *= s;
-    CompressConfig config(m_default_config);
-    config.setDims(block_shape.begin(), block_shape.end());
-    size_t in_buf_size = block_size;
-
-    std::vector<T> in_bufs(in_buf_size * num_threads);
-    std::vector<CompressConfig> configs(num_threads, config);
-    std::vector<std::vector<char>> outputs(num_blocks);
-#pragma omp parallel for schedule(dynamic)
-    for (size_t bid = 0; bid < num_blocks; ++bid) {
-        int tid = omp_get_thread_num();
-        T* __restrict in_buf = in_bufs.data() + in_buf_size*tid;
-        CompressConfig& cfg = configs[tid];
-
-        std::array<size_t, Dim> block_idx;
-        size_t _bid = bid;
-        for (int d = 0; d < Dim; ++d) {
-            int _d = Dim-d-1;
-            block_idx[_d] = _bid % grid[_d];
-            _bid /= grid[_d];
-        }
-
-        std::array<size_t, Dim> start_idx;
-        std::array<size_t, Dim> current_block_shape;
-        for (size_t d = 0; d < Dim; ++d) {
-            start_idx[d] = block_idx[d] * block_shape[d];
-            current_block_shape[d] = std::min(block_shape[d], shape[d] - start_idx[d]);
-        }
-        cfg.setDims(current_block_shape.begin(), current_block_shape.end());
-
-        if constexpr (Dim == 1) {
-            for (size_t i = 0; i < current_block_shape[0]; ++i)
-                in_buf[i] = data[(start_idx[0] + i) * strides[0]];
-        } else if constexpr (Dim == 2) {
-            for (size_t i = 0; i < current_block_shape[0]; ++i)
-                for (size_t j = 0; j < current_block_shape[1]; ++j)
-                    in_buf[i * current_block_shape[1] + j] =
-                        data[(start_idx[0] + i) * strides[0] + (start_idx[1] + j) * strides[1]];
-        } else if constexpr (Dim == 3) {
-            for (size_t i = 0; i < current_block_shape[0]; ++i)
-                for (size_t j = 0; j < current_block_shape[1]; ++j)
-                    for (size_t k = 0; k < current_block_shape[2]; ++k)
-                        in_buf[(i * current_block_shape[1] + j) * current_block_shape[2] + k] =
-                            data[(start_idx[0] + i) * strides[0] + (start_idx[1] + j) * strides[1] + (start_idx[2] + k) * strides[2]];
-        }
-
-        size_t current_block_elements = 1;
-        for (size_t d = 0; d < Dim; ++d) {
-            current_block_elements *= current_block_shape[d];
-        }
-
-        if (compressed) {
-            size_t out_buf_size = minimum_buffer_size<T>(cfg);
-            outputs[bid].resize(out_buf_size);
-            size_t comp_size = compress(cfg, in_buf, outputs[bid].data(), out_buf_size);
-            outputs[bid].resize(comp_size);
-        } else {
-            // Bypass compression: copy raw bytes directly into output block buffer
-            size_t raw_bytes = current_block_elements * sizeof(T);
-            outputs[bid].resize(raw_bytes);
-            std::memcpy(outputs[bid].data(), in_buf, raw_bytes);
-        }
-    }
-
-    // Finish header
-    size_t size_acc = 0;
-    for (size_t i = 0; i < num_blocks; ++i) {
-        block_offsets[i] = size_acc;
-        size_acc += outputs[i].size();
-    }
-    block_offsets[num_blocks] = size_acc; // Fix: Record the final boundary
-    m_file.write(
-            reinterpret_cast<const char*>(block_offsets.data()),
-            (num_blocks + 1) * sizeof(uint64_t));
-
-    // Write data
-    for (size_t i = 0; i < num_blocks; ++i) {
-        m_file.write(outputs[i].data(), outputs[i].size());
-    }
-
+    compress_array(m_default_config, data, m_file, shape, block_shape, strides, compressed);
     write_header(); // Fix: Update the file header so the array metadata persists
 }
 

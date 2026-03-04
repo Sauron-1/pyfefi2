@@ -92,7 +92,7 @@ class TraceGrid {
                         delta >= 0,
                         simd::select(
                             delta >= 1,
-                            -1, 0), 1);
+                            -Float(1), Float(0)), Float(1));
                 grid -= simd::to_int(offset);
                 delta += offset;
             } while (len > zero);
