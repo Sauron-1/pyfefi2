@@ -6,6 +6,7 @@ import numpy as np
 import netCDF4
 import os
 import time
+from pathlib import Path
 
 import base64
 from cryptography.hazmat.primitives.asymmetric import ed25519
@@ -88,6 +89,8 @@ class Handler:
 
         fn = request.path[len(self.url_path):]
         full_fn = os.path.join(self.base, fn)
+        if not Path(full_fn).is_relative_to(Path(self.base)):
+            return web.HTTPForbidden(text="Accessing forbidden directory")
 
         query = request.query.get('q')
 
@@ -117,8 +120,12 @@ class Handler:
                     return web.HTTPBadRequest(text="Slice format error")
                 if name != 'param':
                     try:
-                        data = compress.compress_array(ds[name, slc])
-                        return web.Response(body=data)
+                        data = ds[name, slc]
+                        if np.isscalar(data) or data.ndim == 0:
+                            return web.Response(body=data.tobytes())
+                        else:
+                            data = compress.compress_array(data)
+                            return web.Response(body=data)
                     except Exception as e:
                         return web.HTTPInternalServerError(text="Failed to read or decompress data")
                 else:

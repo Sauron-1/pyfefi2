@@ -47,6 +47,7 @@ class Auth:
             # Generate keys
             user = os.getenv('PYFEFI_USER')
             if not user:
+                print('No credential found. Generating new credential...')
                 user = input('Input your username:\n')
             with open(user_id_file, 'w') as f:
                 f.write(user)
@@ -63,8 +64,10 @@ class Auth:
             self.user = user
             self.key = key
 
-            print('Please send the following information to the maintainer.')
+            print('\nCredential saved.')
+            print('Please send the following information to the server maintainer.\n')
             self.print()
+            input("\nPress the Enter key to continue.")
         else:
             with open(user_id_file, 'r') as f:
                 user = f.read()

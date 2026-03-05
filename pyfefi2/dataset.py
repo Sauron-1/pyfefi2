@@ -88,6 +88,8 @@ class HttpDataset(Dataset):
             result = np.frombuffer(resp.content, dtype=np.float32)
             if np.isscalar(slices):
                 return result[0]
+        if len(resp.content) <= 8: # 0-d array
+            return np.frombuffer(resp.content, dtype=np.float32)[0]
         return compress.decompress_array(resp.content)
 
 def open_dataset(folder: DataFolder, filename: str, allow_remote=True):
