@@ -136,7 +136,7 @@ class Data:
             self.ds_caches.popitem(last=False)
 
         base_fn = f'{self.fn_prefix}{frame:05d}'
-        ds = open_dataset(self.path, base_fn)
+        ds = open_dataset(self.config.folder, base_fn)
         self.ds_caches[frame] = ds
         return ds
 
@@ -249,7 +249,6 @@ class Data:
 
     def time(self, frame):
         ds = self._open(frame)
-        #return ds['param'][0]
         return ds['param', 0]
 
 class InterpData:

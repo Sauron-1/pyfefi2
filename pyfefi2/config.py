@@ -6,6 +6,7 @@ from typing import Optional, Any
 import numpy as np
 from scipy import constants as C
 
+from .datafolder import open_folder, DataFolder
 from .coords import Coordinates
 from .units import Units
 
@@ -28,15 +29,16 @@ class Config:
             cache_folder (Optional[str], optional): The folder to store cache files. Defaults to None.
             Re (float, optional): The Earth radius in meters. Defaults to 6371e3.
         """
-        if os.path.isfile(path):
-            raise RuntimeError(f'`path` must be a folder, got {path}')
+        self.folder = open_folder(path)
+        self.folder.refresh()
 
-        self.path = path
-
-        conf_file = os.path.join(path, 'fefi.input')
-        if not os.path.exists(conf_file):
+        #conf_file = os.path.join(path, 'fefi.input')
+        #if not os.path.exists(conf_file):
+        #    raise RuntimeError(f'{path} does not contain file `fefi.input`.')
+        #self._conf = f90nml.read(conf_file)
+        if not self.folder.exists('fefi.input'):
             raise RuntimeError(f'{path} does not contain file `fefi.input`.')
-        self._conf = f90nml.read(conf_file)
+        self._conf = f90nml.reads(self.folder.read_file('fefi.input'))
 
         self.__cache_folder_set = False
         self._cache_folder = cache_folder
@@ -48,6 +50,10 @@ class Config:
 
         self._Re = Re
         self._prefix = None
+
+    @property
+    def path(self):
+        return self.folder.path
 
     def pqw(self, slices=None):
         """
@@ -75,14 +81,14 @@ class Config:
         """
         if Re is None:
             Re = self.Re
-        return Units(self.path, scaled, Re)
+        return Units(self._conf, scaled, Re)
 
     def _calc_run_id(self, path: str) -> str:
         abs_path = os.path.abspath(path)
         run_id = hashlib.sha256(abs_path.encode('utf-8')).hexdigest()[:8]
         return run_id
 
-    def get_run_id(self, path: str) -> str:
+    def get_run_id(self, folder: DataFolder) -> str:
         """
         Returns the run ID for the simulation.
 
@@ -92,15 +98,14 @@ class Config:
         Returns:
             str: The run ID.
         """
-        id_file = os.path.join(path, 'runid')
-        if os.path.exists(id_file):
-            with open(id_file, 'r') as f:
-                return f.read()
+        fn = 'runid'
+        folder.refresh()
+        if folder.exists(fn):
+            return folder.read_file(fn)
         else:
-            run_id = self._calc_run_id(path)
+            run_id = self._calc_run_id(folder.path)
             try:
-                with open(id_file, 'w') as f:
-                    f.write(run_id)
+                folder.write_file(fn, run_id)
             except (IOError, OSError) as e:
                 warnings.warn(f'RunID file not written. Failed to write {id_file}: {e}')
             return run_id
@@ -112,7 +117,7 @@ class Config:
             if cache_folder is None:
                 cache_folder = os.environ.get('PYFEFI_CACHE_FOLDER', None)
             if cache_folder is not None:
-                run_id = self.get_run_id(os.path.abspath(self.path))
+                run_id = self.get_run_id(self.folder)
                 real_cache_folder = os.path.join(cache_folder, run_id)
                 os.makedirs(real_cache_folder, exist_ok=True)
             self._cache_folder = real_cache_folder
@@ -154,19 +159,20 @@ class Config:
         prefixes = ['fieldds', 'fieldns', 'fieldmp', 'fieldeq']
         prefix = prefixes[self.diag_idx]
 
+        self.folder.refresh()
         if self.diag_idx > 0:
             self._prefix = prefix
-        elif os.path.exists(os.path.join(self.path, prefix + '%05d.nc' % 1)):
+        elif self.folder.has_data(prefix, 1):
             if self._Re is None:
                 self._Re = 2440e3
             self._prefix = prefix
-        elif os.path.exists(os.path.join(self.path, 'field' + '%05d.nc' % 1)):
+        elif self.folder.has_data('field', 1):
             if self._Re is None:
                 self._Re = 6371e3
             self._prefix = 'field'
         else:
             # pass two: list all files
-            fns = os.listdir(self.path)
+            fns = self.folder.list()
             for fn in fns:
                 if fn.startswith(prefix):
                     self._Re = 2440e3

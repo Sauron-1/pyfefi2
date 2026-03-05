@@ -24,7 +24,10 @@ dependencies = [
     "f90nml",
     "psutil",
     "netCDF4",
-    "numba"
+    "numba",
+
+    "requests",
+    "cryptography"
 ]
 
 [tool.setuptools]

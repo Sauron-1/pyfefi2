@@ -9,3 +9,4 @@ from .interp import interp
 from .pyfefi_kernel import compress, tracer as line_tracer
 
 from .compress_file import compress_file
+from .client_auth import Auth

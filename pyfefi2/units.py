@@ -26,21 +26,15 @@ class Units:
             return fn
         return decorator
 
-    def __init__(self, path, scaled=True, Re=6371e3):
+    def __init__(self, nml, scaled=True, Re=6371e3):
         """
         Initializes the Units object.
 
         Args:
-            path (str): The path to the simulation data folder.
+            nml (f90nml object): The simulation config
             scaled (bool, optional): Whether to use scaled units. Defaults to True.
             Re (float, optional): The Earth radius in meters. Defaults to 6371e3.
         """
-        if os.path.isfile(path):
-            conf_fn = path
-        else:
-            conf_fn = os.path.join(path, 'fefi.input')
-        nml = f90nml.read(conf_fn)
-
         simtype = nml['input_parameters']['simtype']
 
         if simtype[0] not in [6, 7] or (simtype[1] < 90 or simtype[1] >= 100):
