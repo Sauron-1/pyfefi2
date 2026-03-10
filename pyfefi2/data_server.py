@@ -57,12 +57,6 @@ class Handler:
         if not all([user_id, timestamp, signature_b64]):
             return web.Response(text="Missing auth headers", status=401)
 
-        # check user
-        with open(self.key_path, 'r') as f:
-            trusted_keys = json.load(f)
-        if user_id not in trusted_keys:
-            return web.Response(text='Unknown user', status=403)
-
         # check time stamp
         try:
             if abs(time.time() - int(timestamp)) > 30:
@@ -70,16 +64,37 @@ class Handler:
         except ValueError:
             return web.Response(text="Invalid timestamp", status=400)
 
+        # check user
+        with open(self.key_path, 'r') as f:
+            trusted_keys = json.load(f)
+
+        users = trusted_keys.get('users', [])
+        matched_users = [u for u in users if u.get('name') == user_id]
+
+        if not matched_users:
+            return web.Response(text='Unknown user', status=403)
+
         # verify signature
-        try:
-            pub_key_bytes = base64.b64decode(trusted_keys[user_id])
-            public_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_key_bytes)
+        for user in matched_users:
+            keys = list(user.get('keys', []))
+            if 'key' in user:
+                keys.append(user['key'])
 
-            signature = base64.b64decode(signature_b64)
-            public_key.verify(signature, (timestamp + user_id).encode('utf-8'))
+            for key_str in keys:
+                try:
+                    pub_key_bytes = base64.b64decode(key_str)
+                    public_key = ed25519.Ed25519PublicKey.from_public_bytes(pub_key_bytes)
 
-        except (InvalidSignature, Exception) as e:
-            return web.Response(text="Invalid signature", status=403)
+                    signature = base64.b64decode(signature_b64)
+                    public_key.verify(signature, (timestamp + user_id).encode('utf-8'))
+
+                    request['user'] = user
+                    request['config'] = trusted_keys
+                    return None
+                except (InvalidSignature, ValueError, TypeError, Exception):
+                    pass
+
+        return web.Response(text="Invalid signature", status=403)
 
 
     async def send_data(self, request):
@@ -92,6 +107,60 @@ class Handler:
         if not Path(full_fn).is_relative_to(Path(self.base)):
             return web.HTTPForbidden(text="Accessing forbidden directory")
 
+        # Access control
+        user = request['user']
+        config = request['config']
+
+        req_path_str = os.path.normpath(fn.lstrip('/'))
+        if req_path_str == '.':
+            req_path_str = ''
+        req_path = Path(req_path_str)
+
+        # Collect rules
+        rules = [user]
+        groups = config.get('groups', {})
+        for g in user.get('groups', []):
+            if g in groups:
+                rules.append(groups[g])
+
+        is_whitelist_mode = any(r.get('mode') == 'whitelist' for r in rules)
+
+        whitelist_folders = []
+        blacklist_folders = []
+        for r in rules:
+            if r.get('mode') == 'whitelist':
+                whitelist_folders.extend(r.get('folders', []))
+            elif r.get('mode') == 'blacklist':
+                blacklist_folders.extend(r.get('folders', []))
+
+        # Check blacklist first
+        for folder in blacklist_folders:
+            if folder == '/' or folder == '':
+                folder_path = Path('')
+            else:
+                folder_path = Path(folder)
+            # If the requested path is inside the blacklisted folder, or exactly the blacklisted folder
+            if req_path == folder_path or req_path.is_relative_to(folder_path):
+                return web.HTTPForbidden(text="Access denied")
+
+        # Then check whitelist if in whitelist mode
+        if is_whitelist_mode:
+            allowed = False
+            for folder in whitelist_folders:
+                if folder == '/' or folder == '':
+                    folder_path = Path('')
+                else:
+                    folder_path = Path(folder)
+                # If requested path is inside the whitelisted folder, it's allowed
+                # If the requested path is a parent of the whitelisted folder (e.g. asking for root, when 'secret' is whitelisted),
+                # we should probably allow access to list, but reading actual files inside that parent directory that aren't whitelisted will be caught later?
+                # Actually, wait. If they request the root directory 'list', and 'secret' is whitelisted, they need to be able to list root.
+                if req_path == folder_path or req_path.is_relative_to(folder_path) or folder_path.is_relative_to(req_path):
+                    allowed = True
+                    break
+            if not allowed:
+                return web.HTTPForbidden(text="Access denied")
+
         query = request.query.get('q')
 
         if query == 'raw':
@@ -99,7 +168,40 @@ class Handler:
         elif query == 'list':
             try:
                 fns = os.listdir(full_fn)
-                return web.json_response({'files': fns})
+                # Filter out blacklisted folders from list if they are directly inside req_path
+                filtered_fns = []
+                for f in fns:
+                    item_path = req_path / f
+
+                    is_blacklisted = False
+                    for bfolder in blacklist_folders:
+                        if bfolder == '/' or bfolder == '':
+                            bfolder_path = Path('')
+                        else:
+                            bfolder_path = Path(bfolder)
+                        if item_path == bfolder_path or item_path.is_relative_to(bfolder_path):
+                            is_blacklisted = True
+                            break
+
+                    if is_blacklisted:
+                        continue
+
+                    if is_whitelist_mode:
+                        is_whitelisted = False
+                        for wfolder in whitelist_folders:
+                            if wfolder == '/' or wfolder == '':
+                                wfolder_path = Path('')
+                            else:
+                                wfolder_path = Path(wfolder)
+                            if item_path == wfolder_path or item_path.is_relative_to(wfolder_path) or wfolder_path.is_relative_to(item_path):
+                                is_whitelisted = True
+                                break
+                        if not is_whitelisted:
+                            continue
+
+                    filtered_fns.append(f)
+
+                return web.json_response({'files': filtered_fns})
             except Exception:
                 return web.HTTPNotFound()
         else:
