@@ -686,7 +686,7 @@ FORCE_INLINE constexpr vec_of_t<Vec> permute(const Vec& v0) {
 #define SIMD_MAP_BINARY_FN(FNNAME) \
     template<typename T1, typename T2> \
         requires(not vec_like<T1> and not vec_like<T2>) \
-    FORCE_INLINE constexpr auto FNNAME (const T1& _v1, const T1& _v2) { \
+    FORCE_INLINE constexpr auto FNNAME (const T1& _v1, const T2& _v2) { \
         return SIMD_MATH_FN_SRC::FNNAME (_v1, _v2); \
     }\
     template<vec_like Vec1, vec_like Vec2> \
