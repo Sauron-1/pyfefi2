@@ -73,6 +73,9 @@ class Coordinates:
         self.to_cartesian = to_cartesian
         self.from_cartesian = from_cartesian
 
+        self.cuv_limits = self.limits
+        self.bounding_box = self.limits
+
     def _bind_kernel(self, kernel):
         def to_cartesian(p, q, w):
             p, q, w = np.broadcast_arrays(p, q, w)
@@ -107,6 +110,7 @@ class Coordinates:
         self.cuv_limits = np.array([(0, self.grid_size[0]),
                                     (0, self.grid_size[1]),
                                     (0, self.grid_size[2])])
+        self.bounding_box = self.limits
 
     def _init_spehere_mod(self, config):
         if self.dtype.itemsize == 64:
@@ -120,6 +124,11 @@ class Coordinates:
         qlim = [lim*np.pi/180 for lim in self.limits[1]]
         wlim = [lim*np.pi/180 for lim in self.limits[2]]
         self.cuv_limits = np.array([plim, qlim, wlim])
+        self.bounding_box = np.array([
+            [0, self.limits[0, 1]],
+            [-self.limits[0, 1], self.limits[0, 1]],
+            [-self.limits[0, 1], self.limits[0, 1]]
+        ])
 
     def slice_size(self, slices):
         """
