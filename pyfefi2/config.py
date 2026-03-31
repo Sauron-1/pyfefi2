@@ -120,8 +120,10 @@ class Config:
                 run_id = self.get_run_id(self.folder)
                 real_cache_folder = os.path.join(cache_folder, run_id)
                 os.makedirs(real_cache_folder, exist_ok=True)
-            self._cache_folder = real_cache_folder
-            self.__cache_folder_set = True
+                self._cache_folder = real_cache_folder
+                self.__cache_folder_set = True
+            else:
+                self._cache_folder = None
 
         return self._cache_folder
 
